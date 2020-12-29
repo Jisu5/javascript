@@ -3,9 +3,9 @@
 
 3. Type, Value, Variable
   - 3.1 Type, Value
-  - [3.2 Variable and Hoisting](JavaScript\Study/3.2.\변수와\호이스팅.md)
+  - [3.2 Variable and Hoisting](JavaScript%20Study/3.2.%20변수와%20호이스팅.md)
 
-4. [Expression and Operator](JavaScript\Study/4.\표현식과\연산자.md)
+4. [Expression and Operator](JavaScript%20Study/4.%20표현식과%20연산자.md)
 
 
 

@@ -173,4 +173,3 @@
         export { mean } from './stats/mean.js'
         export { stddev } from './stats/stddev.js'
         ```
-* 

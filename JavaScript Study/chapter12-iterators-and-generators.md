@@ -408,3 +408,70 @@ function* sequence(...iterables) {
 
 - yield* generator와 함께 수행되는 iterable을 포함한 모든 iterable object와  같이 사용될 수 있다. 
 - 이것은  yield* 가  recursive generator를 정의하는 것을 허용함을 의미한다. 이 기능을 사용해 간단한 비재귀 iterator를 넘어서 재귀적으로 정의된 트리 구조도 사용할 수 있다.
+
+
+
+## 12.4 Advanced Generator Features
+
+- Generator의 일반적인 기능은 iterator를 생성하는 것이다.
+- 하지만 generator의 함수적인 기능은 계산을 일시정지하고, 중간 결과를 반환하고 나중에 계산을 재개한다는 것이다.
+
+### 12.4.1 The Return Value of a Generator Function
+
+- 앞에서 봐온 generator 함수는 return문을 가지고 있지 않았다. 가지고 있다면, 값을 반환하기 위해서가 아닌 이른 종료를 야기하기 위해 사용된다.
+- 다른 함수들과 마찬하지로 generator함수는 값을 반환할 수 있다. 이를 위해 iterator가 어떻게 작동하는지 이해해야 한다.
+- next()의 반환값은 value 프로퍼티와(and/or) done프로퍼티를 가지고 있는 객체이다. (두 프로퍼티 모두를 가질 수도있고, 하나만 가지고 있을 수도있다.)
+- 전형적인 iterator와 generator에서 value 프로퍼티가 정의되어 있다면, done 프로퍼티는 undefined이거나 false이다.
+  그리고 done 값이 true라면, value가 undefined이다.
+- 값을 return하는 generator의 경우에, next()의 마지막 호출은 value와 done이 둘다 정의된 객체를 return한다.
+- generator함수의 return value를 value 프로퍼티가 가지고 있고, done은 true이다. (더이상 순회할 값이 없다는 것을 의미)
+- 이 마지막 값은 for/of loop와 spread 연산자에서는 무시되지만, next()호출로 수동적으로 순회할 수 있다.
+
+```javascript
+function *oneAndDone() {
+  yield 1;
+  return "done";
+}
+// The return value does not appear in normal iteration.
+[...oneAndDone()] // => [1]
+// But it is available if you explicitly call next()
+let generator = oneAndDone();
+generator.next() // => { value: 1, done: false}
+generator.next() // => { value: "done", done: true }
+// If the generator is already done, the return value is not returned again
+generator.next() // => { value: undefined, done: true }
+```
+
+### 12.4.2 The Value of a yield Expression
+
+- 앞에서 yield는 자기자신의 값을 가지지 않는 statement로 다루어졌지만, yield는 expression이고, 값을 가질수 있다.
+- Next() 메소드가 호출될 때, generator 함수는 yield expression에 도달할 때까지 작동한다. 
+- yield 키워드 뒤에 따라오는 표현식은 평가되고 그 값은 next() 호출의 반환값이 된다. 
+- 이 부분에서 generator 함수는 yield 표현식을 평가하는 중간에 실행을 멈춘다.
+- generator의 next()가 다음 번에 호출될 때, next()에 전달되는 인자는 일시정지된 yield 표현식의 값이 된다.
+- generator의 caller는 yield로 호출되는 값을 반환하고, caller는 generator의 next()로 값을 전달한다.
+- generator와 caller는 값 전달을 실행할 때 두개의 분리된 스트림으로 실행된다.
+
+```javascript
+function* smallNumbers() {
+  console.log("next() invoked the first time; argument discarded");
+  let y1 = yield 1; // y1 == "b"
+  console.log("next() invoked a second time with argument", y1);
+  let y2 = yield 2; // y2 == "c"
+  console.log("next() invoked a third time with argument", y2);
+  let y3 = yield 3; // y3 == "d"
+  console.log("next() invoked a fourth time with argument", y3);
+  return 4;
+}
+let g = smallNumbers();
+console.log("generator created; no code runs yet");
+let n1 = g.next("a"); // n1.value == 1
+console.log("generator yielded", n1.value);
+let n2 = g.next("b"); // n2.value == 2
+console.log("generator yielded", n2.value);
+let n3 = g.next("c"); // n3.value == 3
+console.log("generator yielded", n3.value);
+let n4 = g.next("d"); // n4 == { value: 4, done: true }
+console.log("generator returned", n4.value);
+```
+

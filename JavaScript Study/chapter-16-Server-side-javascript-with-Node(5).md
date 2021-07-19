@@ -1,4 +1,4 @@
-#
+# Chapter 16. Server-Side JavaScript with Node (5)
 
 ## 16.8 HTTP Clients and Servers
 
@@ -95,19 +95,14 @@ function serve(rootDirectory, port) {
         response.write(`${headers[i]}: ${headers[i+1]}\r\n`);
       }
       response.write("\r\n");
-      // Now we need to copy any request body to the response body
-      // Since they are both streams, we can use a pipe
+      // request body를 response body에 복사
       request.pipe(response);
     }
     else {
-      // Map the endpoint to a file in the local filesystem
-      let filename = endpoint.substring(1); // strip leading /
-      // Don't allow "../" in the path because it would be a security
-      // hole to serve anything outside the root directory.
-      filename = filename.replace(/\.\.\//g, "");
-      // Now convert from relative to absolute filename
+      // 로컬 파일 시스템에 엔드포인트 매핑
+      let filename = endpoint.substring(1);
+      filename = filename.replace(/\.\.\//g, ""); // "../" => ""
       filename = path.resolve(rootDirectory, filename);
-      // Now guess the type file's content type based on extension
       let type;
       switch(path.extname(filename)) {
         case ".html":
@@ -120,10 +115,6 @@ function serve(rootDirectory, port) {
       }
       let stream = fs.createReadStream(filename);
       stream.once("readable", () => {
-        // If the stream becomes readable, then set the
-        // Content-Type header and a 200 OK status. Then pipe the
-        // file reader stream to the response. The pipe will
-        // automatically call response.end() when the stream ends.
         response.setHeader("Content-Type", type);
         response.writeHead(200);
         stream.pipe(response);
@@ -151,72 +142,58 @@ serve(process.argv[2] || "/tmp", parseInt(process.argv[3]) || 8000);
 - 클라이언트를 작성하는 것은 훨씬 쉽다. 포트 번호와 호스트 이름을 `net.createConnection()`에 전달하여 해당 호스트에서 실행 중인 모든 서버와 통신하는 소켓을 생성한 다음 이 소켓을 사용하여 서버 간에 데이터를 읽고 씁니다.
 
 ```javascript
-// A TCP server that delivers interactive knock-knock jokes on port 6789.
-// (Why is six afraid of seven? Because seven ate nine!)
+// 6789 포트에서 knock-knock joke를 전달하는 TCP 서버
 const net = require("net");
 const readline = require("readline");
-// Create a Server object and start listening for connections
 let server = net.createServer();
 server.listen(6789, () => console.log("Delivering laughs on port 6789"));
-// When a client connects, tell them a knock-knock joke.
+
 server.on("connection", socket => {
   tellJoke(socket)
-    .then(() => socket.end()) // When the joke is done, close the socket.
+    .then(() => socket.end())
     .catch((err) => {
-    console.error(err); // Log any errors that occur,
-    socket.end(); // but still close the socket!
+    console.error(err);
+    socket.end();
   });
 });
-// These are all the jokes we know.
+
 const jokes = {
   "Boo": "Don't cry...it's only a joke!",
   "Lettuce": "Let us in! It's freezing out here!",
   "A little old lady": "Wow, I didn't know you could yodel!"
 };
-// Interactively perform a knock-knock joke over this socket, without blocking.
+
 async function tellJoke(socket) {
-  // Pick one of the jokes at random
   let randomElement = a => a[Math.floor(Math.random() * a.length)];
   let who = randomElement(Object.keys(jokes));
   let punchline = jokes[who];
-  // Use the readline module to read the user's input one line at a time.
+  // readline 모듈로 사용자의 입력을 한줄씩 받음
   let lineReader = readline.createInterface({
     input: socket,
     output: socket,
     prompt: ">> "
   });
-  // A utility function to output a line of text to the client
-  // and then (by default) display a prompt.
+
   function output(text, prompt=true) {
     socket.write(`${text}\r\n`);
     if (prompt) lineReader.prompt();
   }
-  // Knock-knock jokes have a call-and-response structure.
-  // We expect different input from the user at different stages and
-  // take different action when we get that input at different stages.
+
   let stage = 0;
-  // Start the knock-knock joke off in the traditional way.
   output("Knock knock!");
-  // Now read lines asynchronously from the client until the joke is done.
   for await (let inputLine of lineReader) {
     if (stage === 0) {
       if (inputLine.toLowerCase() === "who's there?") {
-        // If the user gives the right response at stage 0
-        // then tell the first part of the joke and go to stage 1.
         output(who);
         stage = 1;
       } else {
-        // Otherwise teach the user how to do knock-knock jokes.
         output('Please type "Who\'s there?".');
       }
     } else if (stage === 1) {
       if (inputLine.toLowerCase() === `${who.toLowerCase()} who?`) {
-        // If the user's response is correct at stage 1, then
-        // deliver the punchline and return since the joke is done.
         output(`${punchline}`, false);
         return;
       } else {
-        // Make the user play along.
         output(`Please type "${who} who?".`);
       }
     }
@@ -241,11 +218,45 @@ Wow, I didn't know you could yodel!
 ```javascript
 // Connect to the joke port (6789) on the server named on the command line
 let socket = require("net").createConnection(6789, process.argv[2]);
-socket.pipe(process.stdout); // Pipe data from the socket to stdout
-process.stdin.pipe(socket); // Pipe data from stdin to the socket
-socket.on("close", () => process.exit()); // Quit when the socket closes.
+socket.pipe(process.stdout);
+process.stdin.pipe(socket);
+socket.on("close", () => process.exit());
 ```
 
 - TCP 기반 서버 지원 외에도 노드의 "net" 모듈은 포트 번호가 아닌 파일 시스템 경로로 식별되는 "Unix 도메인 소켓"을 통한 프로세스 간 통신도 지원한다다.  여기에 공간이 없는 다른 노드 기능에는 UDP 기반 클라이언트 및 서버용 "dgram" 모듈과 "https"로 "net"할 "tls" 모듈이 포함된다. 
 - tls.Server 및 tls.TLS 소켓 클래스를 사용하면 HTTPS 서버처럼 SSL로 암호화된 연결을 사용하는 TCP 서버(knock knock joke server 등)를 생성할 수 있다.
+
+
+
+## 16.10 Working with Child Processes
+
+- Node는 동시성이 높은 서버로 다른 프로그램을 실행하는 스크립트 작성에도 적합하다. 
+- 노드에서 `child_process` 모듈은 다른 프로그램을 하위 프로세스로 실행하기 위한 함수를 정의한다. 
+
+### 16.10.1 execSync() and execFileSync()
+
+- 다른 프로그램을 실행하기 위한 가장 쉬운 방법은 `child_process.execSync()`을 사용하는 것이다.
+  - 이 함수는 실행을 위한 command를 첫 인자로 받는다.
+  - 하위 프로세스를 생성하고, 그 프로세스는 셸을 실행해 전달한 command를 수행한다.
+  - 그런 다음 명령(및 셸)이 종료될 때까지 blocking된다.
+  - 명령이 오류와 함께 종료되면 execSync()가 예외를 발생시키고, 그렇지 않으면 execSync()는 명령이 stdout 스트림에 쓰는 모든 출력을 반환한다.
+  - 기본적으로 이 반환 값은 버퍼이지만 선택적 두 번째 인자에 인코딩을 지정하여 문자열을 가져올 수 있다
+  -  명령이 출력을 stderr에 쓰는 경우 해당 출력은 상위 프로세스의 stderr 스트림으로 전달된다.
+
+```javascript
+const child_process = require("child_process");
+let listing = child_process.execSync("ls -l web/*.html", {encoding: "utf8"});
+```
+
+- `execSync()`가 Unix shell을 호출한다는 것은 전달하는 문자열에 세미콜론으로 구분된 명령이 여러 개 포함될 수 있으며 파일 이름 와일드카드, 파이프 및 출력 리디렉션과 같은 shell 기능을 활용할 수 있음을 의미한다.
+  - 사용자 입력 등에서 가져온 명령을 execSync()에 전달하지 않도록 주의해야 한다. 공격자가 임의 코드를 실행할 수 있도록 셸 명령의 복잡한 구문을 쉽게 변환할 수 있기 때문이다.
+
+- 셸 기능이 필요하지 않은 경우 `child_process.execFileSync()`를 사용하여 셸을 시작하는 오버헤드를 방지할 수 있다. 
+  - 이 함수는 셸을 호출하지 않고 프로그램을 직접 실행한다. 
+  - 셸이 포함되어 있지 않으므로 command line을 pasing 할 수 없고, 실행어를 첫 번째 인자로 전달하고 command line 인자 배열을 두 번째 인자로 전달해야 한다
+
+```javascript
+let listing = child_process.execFileSync("ls", ["-l", "web/"],
+                                         {encoding: "utf8"});
+```
 
